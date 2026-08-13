@@ -1,6 +1,8 @@
 package com.abc.abcbank.auth_users.service.impl;
 
 import com.abc.abcbank.account.entity.Account;
+import com.abc.abcbank.auth_users.dto.LoginRequest;
+import com.abc.abcbank.auth_users.dto.LoginResponse;
 import com.abc.abcbank.auth_users.dto.RegistrationRequest;
 import com.abc.abcbank.auth_users.entity.User;
 import com.abc.abcbank.auth_users.repo.UserRepository;
@@ -14,6 +16,7 @@ import com.abc.abcbank.notification.service.NotificationService;
 import com.abc.abcbank.response.Response;
 import com.abc.abcbank.role.entity.Role;
 import com.abc.abcbank.role.repo.RoleRepository;
+import com.abc.abcbank.security.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final TokenService tokenService;
 
 
     @Value("${password.reset.link}")
@@ -102,8 +106,34 @@ public class AuthServiceImpl implements AuthService {
 
         return Response.<String>builder()
                 .statusCode(HttpStatus.OK.value())
-                .message("Your account has been created successfully!")
+                .message("Your account has been created successfully")
 //                .data("Account details has been sent to your email. Your account number is: " + savedAccount.getAccountNumber())
+                .build();
+    }
+
+    @Override
+    public Response<LoginResponse> login(LoginRequest loginRequest) {
+
+        String email = loginRequest.getEmail();
+        String password = loginRequest.getPassword();
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new NotFoundException("EMAIL NOT FOUND"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new BadRequestException("Password doesn't correct");
+        }
+
+        String token = tokenService.generateToken(user.getEmail());
+
+        LoginResponse loginResponse = LoginResponse.builder()
+                .roles(user.getRoles().stream().map(Role::getName).toList())
+                .token(token)
+                .build();
+
+        return Response.<LoginResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Login Successfully")
+                .data(loginResponse)
                 .build();
     }
 }
