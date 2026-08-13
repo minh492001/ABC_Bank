@@ -2,6 +2,7 @@ package com.abc.abcbank.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,6 +29,7 @@ public class TokenService {
     private void init() {
         byte[] keyByte = JWT_SECRETE.getBytes(StandardCharsets.UTF_8);
         this.key = new SecretKeySpec(keyByte, "HmacSHA256");
+//        this.key = Keys.hmacShaKeyFor(keyByte);
     }
 
     public String generateToken(String email) {
