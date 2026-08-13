@@ -4,9 +4,12 @@ import com.abc.abcbank.account.entity.Account;
 import com.abc.abcbank.auth_users.dto.LoginRequest;
 import com.abc.abcbank.auth_users.dto.LoginResponse;
 import com.abc.abcbank.auth_users.dto.RegistrationRequest;
+import com.abc.abcbank.auth_users.entity.PasswordResetCode;
 import com.abc.abcbank.auth_users.entity.User;
+import com.abc.abcbank.auth_users.repo.PasswordResetCodeRepo;
 import com.abc.abcbank.auth_users.repo.UserRepository;
 import com.abc.abcbank.auth_users.service.AuthService;
+import com.abc.abcbank.auth_users.service.CodeGenerator;
 import com.abc.abcbank.enums.AccountType;
 import com.abc.abcbank.enums.Currency;
 import com.abc.abcbank.exceptions.BadRequestException;
@@ -23,7 +26,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +44,9 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
     private final TokenService tokenService;
+
+    private final CodeGenerator codeGenerator;
+    private final PasswordResetCodeRepo passwordResetCodeRepo;
 
 
     @Value("${password.reset.link}")
@@ -135,5 +143,50 @@ public class AuthServiceImpl implements AuthService {
                 .message("Login Successfully")
                 .data(loginResponse)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public Response<?> forgetPassword(String email) {
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new NotFoundException("User Not Found"));
+        passwordResetCodeRepo.deleteByUserId(user.getId());
+
+        String code = codeGenerator.generateUniqueCode();
+
+        PasswordResetCode resetCode = PasswordResetCode.builder()
+                .user(user)
+                .code(code)
+                .expiryDate(calculateExpiryDate())
+                .used(false)
+                .build();
+
+        passwordResetCodeRepo.save(resetCode);
+
+        //send email reset link out
+        Map<String, Object> templateVariables = new HashMap<>();
+        templateVariables.put("name", user.getFirstName());
+        templateVariables.put("resetLink", resetLink + code);
+
+
+        NotificationDTO notificationDTO = NotificationDTO.builder()
+                .recipient(user.getEmail())
+                .subject("Password Reset Code")
+                .templateName("password-reset")
+                .templateVariables(templateVariables)
+                .build();
+
+        notificationService.sendEmail(notificationDTO, user);
+
+
+        return Response.builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Password reset code sent to your email")
+                .build();
+
+    }
+
+    private LocalDateTime calculateExpiryDate() {
+        return LocalDateTime.now().plusHours(5);
     }
 }
