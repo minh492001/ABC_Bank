@@ -4,6 +4,7 @@ import com.abc.abcbank.account.entity.Account;
 import com.abc.abcbank.auth_users.dto.LoginRequest;
 import com.abc.abcbank.auth_users.dto.LoginResponse;
 import com.abc.abcbank.auth_users.dto.RegistrationRequest;
+import com.abc.abcbank.auth_users.dto.ResetPasswordRequest;
 import com.abc.abcbank.auth_users.entity.PasswordResetCode;
 import com.abc.abcbank.auth_users.entity.User;
 import com.abc.abcbank.auth_users.repo.PasswordResetCodeRepo;
@@ -184,6 +185,52 @@ public class AuthServiceImpl implements AuthService {
                 .message("Password reset code sent to your email")
                 .build();
 
+    }
+
+    @Override
+    @Transactional
+    public Response<?> updatePasswordViaResetCode(ResetPasswordRequest resetPasswordRequest) {
+        String code = resetPasswordRequest.getCode();
+        String newPassword = resetPasswordRequest.getNewPassword();
+
+        // Find and validate code
+
+        PasswordResetCode resetCode = passwordResetCodeRepo.findByCode(code)
+                .orElseThrow(() -> new BadRequestException("Invalid reset code"));
+
+        // Check expiration first
+        if (resetCode.getExpiryDate().isBefore(LocalDateTime.now())) {
+            passwordResetCodeRepo.delete(resetCode); // Clean up expired code
+            throw new BadRequestException("Reset code has expired");
+        }
+
+
+        //update the pasword
+        User user = resetCode.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Delete the code immediately after successful use
+        passwordResetCodeRepo.delete(resetCode);
+
+
+        // Send confirmation email
+        Map<String, Object> templateVariables = new HashMap<>();
+        templateVariables.put("name", user.getFirstName());
+
+        NotificationDTO confirmationEmail = NotificationDTO.builder()
+                .recipient(user.getEmail())
+                .subject("Password Updated Successfully")
+                .templateName("password-update-confirmation")
+                .templateVariables(templateVariables)
+                .build();
+
+        notificationService.sendEmail(confirmationEmail, user);
+
+        return Response.builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Password updated successfully")
+                .build();
     }
 
     private LocalDateTime calculateExpiryDate() {
