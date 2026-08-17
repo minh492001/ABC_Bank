@@ -46,4 +46,16 @@ public class UserServiceImpl implements UserService {
 
         return userRepository.findByEmail(email).orElseThrow(() -> new NotFoundException("User not found"));
     }
+
+    @Override
+    public Response<UserDTO> getMyProfile() {
+        User user = getCurrentLoggedInUser();
+        UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+
+        return Response.<UserDTO>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("User retrieved")
+                .data(userDTO)
+                .build();
+    }
 }
