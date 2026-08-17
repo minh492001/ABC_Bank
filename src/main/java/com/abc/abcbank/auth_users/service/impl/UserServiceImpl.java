@@ -58,4 +58,16 @@ public class UserServiceImpl implements UserService {
                 .data(userDTO)
                 .build();
     }
+
+    @Override
+    public Response<Page<UserDTO>> getAllUsers(int page, int size) {
+        Page<User> users = userRepository.findAll(PageRequest.of(page, size));
+        Page<UserDTO> usersDTO = users.map(user -> modelMapper.map(user, UserDTO.class));
+
+        return Response.<Page<UserDTO>>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Users retrieved")
+                .data(usersDTO)
+                .build();
+    }
 }
