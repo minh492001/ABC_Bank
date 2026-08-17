@@ -70,4 +70,43 @@ public class UserServiceImpl implements UserService {
                 .data(usersDTO)
                 .build();
     }
+
+    @Override
+    public Response<?> updatePassword(UpdatePasswordRequest updatePasswordRequest) {
+        User user = getCurrentLoggedInUser();
+        String newPassword = updatePasswordRequest.getNewPassword();
+        String oldPassword = updatePasswordRequest.getOldPassword();
+
+        if (oldPassword == null) {
+            throw new BadRequestException("Old password is required");
+        } else if (newPassword == null) {
+           throw new BadRequestException("New password is required");
+        }
+
+        // validate old password
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new BadRequestException("Old password is not correct");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        userRepository.save(user);
+
+        // send password change confirmation email
+        Map<String, Object> templateVariables = new HashMap<>();
+        templateVariables.put("name", user.getFirstName());
+
+        NotificationDTO notificationDTO = NotificationDTO.builder()
+                .recipient(user.getEmail())
+                .subject("Your password was successfully changed")
+                .templateName("password-change")
+                .templateVariables(templateVariables)
+                .build();
+        notificationService.sendEmail(notificationDTO, user);
+
+        return Response.builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Password changed successfully")
+                .build();
+    }
 }
