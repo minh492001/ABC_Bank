@@ -17,4 +17,9 @@ public class AccountController {
     public ResponseEntity<Response<?>> getMyAccounts () {
         return ResponseEntity.ok(accountService.getMyAccounts());
     }
+
+    @DeleteMapping("/close/{accountNumber}")
+    public ResponseEntity<Response<?>> closeAccount(@PathVariable String accountNumber) {
+        return ResponseEntity.ok(accountService.closeAccount(accountNumber));
+    }
 }
