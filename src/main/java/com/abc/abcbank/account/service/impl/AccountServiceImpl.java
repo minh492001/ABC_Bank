@@ -9,6 +9,8 @@ import com.abc.abcbank.auth_users.service.UserService;
 import com.abc.abcbank.enums.AccountStatus;
 import com.abc.abcbank.enums.AccountType;
 import com.abc.abcbank.enums.Currency;
+import com.abc.abcbank.exceptions.BadRequestException;
+import com.abc.abcbank.exceptions.NotFoundException;
 import com.abc.abcbank.response.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +68,29 @@ public class AccountServiceImpl implements AccountService {
                 .statusCode(HttpStatus.OK.value())
                 .message("User accounts fetched successfully")
                 .data(accounts)
+                .build();
+    }
+
+    @Override
+    public Response<?> closeAccount(String accountNumber) {
+        User user = userService.getCurrentLoggedInUser();
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new NotFoundException("Account Not Found"));
+
+        if (!user.getAccounts().contains(account)) {
+            throw new NotFoundException("Account doesn't belong to user");
+        }
+        if (account.getBalance().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BadRequestException("Account balance must be zero before closing");
+        }
+
+        account.setStatus(AccountStatus.CLOSED);
+        account.setClosedAt(LocalDateTime.now());
+        accountRepository.save(account);
+
+        return Response.builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Account closed successfully")
                 .build();
     }
 

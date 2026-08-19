@@ -12,4 +12,5 @@ public interface AccountService {
 
     Account createAccount(AccountType accountType, User user);
     Response<List<AccountDTO>> getMyAccounts();
+    Response<?> closeAccount(String accountNumber);
 }
