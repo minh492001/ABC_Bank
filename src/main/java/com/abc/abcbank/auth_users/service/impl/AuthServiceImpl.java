@@ -1,6 +1,7 @@
 package com.abc.abcbank.auth_users.service.impl;
 
 import com.abc.abcbank.account.entity.Account;
+import com.abc.abcbank.account.service.AccountService;
 import com.abc.abcbank.auth_users.dto.LoginRequest;
 import com.abc.abcbank.auth_users.dto.LoginResponse;
 import com.abc.abcbank.auth_users.dto.RegistrationRequest;
@@ -45,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
     private final TokenService tokenService;
+    private final AccountService accountService;
 
     private final CodeGenerator codeGenerator;
     private final PasswordResetCodeRepo passwordResetCodeRepo;
@@ -83,8 +85,8 @@ public class AuthServiceImpl implements AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // TODO: Auto generate an account number for user
-//        Account savedAccount = accountService.createAccount(AccountType.SAVINGS, savedUser);
+        // Create account number for user
+        Account savedAccount = accountService.createAccount(AccountType.SAVINGS, savedUser);
 
         // Send a welcome email to user's email
         Map<String, Object> vars = new HashMap<>();
@@ -101,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
         // Send account details
         Map<String, Object> accountVars = new HashMap<>();
         accountVars.put("name", savedUser.getFirstName());
-//        accountVars.put("accountNumber", savedAccount.getAccountNumber());
+        accountVars.put("accountNumber", savedAccount.getAccountNumber());
         accountVars.put("accountType", AccountType.SAVINGS.name());
         accountVars.put("currency", Currency.VND);
         NotificationDTO accountDetails = NotificationDTO.builder()
@@ -116,7 +118,7 @@ public class AuthServiceImpl implements AuthService {
         return Response.<String>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("Your account has been created successfully")
-//                .data("Account details has been sent to your email. Your account number is: " + savedAccount.getAccountNumber())
+                .data("Account details has been sent to your email. Your account number is: " + savedAccount.getAccountNumber())
                 .build();
     }
 
@@ -194,7 +196,6 @@ public class AuthServiceImpl implements AuthService {
         String newPassword = resetPasswordRequest.getNewPassword();
 
         // Find and validate code
-
         PasswordResetCode resetCode = passwordResetCodeRepo.findByCode(code)
                 .orElseThrow(() -> new BadRequestException("Invalid reset code"));
 
